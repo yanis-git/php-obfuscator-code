@@ -3,10 +3,11 @@
 include('Crypt/RSA.php');
 
 /**
-* Class d'encode / decode de source Code
-*
+* Source code encode / decode with RSA Encryption system
+* Yanis Ghidouche
 * On obfusque / deobfusque en fonction des différentes librairie disponible.
 */
+
 class Obfuscator
 {
 
@@ -17,10 +18,19 @@ class Obfuscator
 	public $rsa;
 
 
-	function __construct()
+	function __construct($publicPath = "", $privatePath = "")
 	{
-		$this->keys["private"] = file_get_contents("rsakey/private.rsa.key");
-		$this->keys["public"] = file_get_contents("rsakey/public.rsa.key");
+		if(empty($publicPath))
+			$this->keys["public"] = file_get_contents("rsakey/public.rsa.key");
+		else
+			$this->keys["public"] = file_get_contents($privatePath);
+
+
+		if(empty($privatePath))
+			$this->keys["private"] = file_get_contents("rsakey/private.rsa.key");
+		else
+			$this->keys["private"] = file_get_contents($privatePath);
+
 		$this->rsa = new Crypt_RSA();
 	}
 
@@ -30,6 +40,9 @@ class Obfuscator
 			$this->rsa->loadKey($this->keys["public"]); // public key
 			$obfuscate = $this->rsa->encrypt($obfuscate);
 	  	}
+	  	else{
+	  		throw new Exception("Public key doesn't exist.", 1);	
+	  	}
 	  	return $obfuscate;
 	}
 
@@ -37,6 +50,10 @@ class Obfuscator
 	  	if(!empty($this->keys["private"])){
 			$this->rsa->loadKey($this->keys["private"]); // private key
 			$obfuscate = $this->rsa->decrypt($obfuscate);
+	  	}
+	  	else{
+	  		throw new Exception("Private Key doesn't exist.", 1);
+	  		
 	  	}
 		return stripslashes(str_rot13(gzuncompress(base64_decode($obfuscate))));
 	}
@@ -46,51 +63,17 @@ class Obfuscator
 	}
 
 	public function escape($string){
-		// Commentaire monoligne
+		// Single line Comment
 		$string = preg_replace("#\/\/(.*)\s$#", "", $string);
 		
-		//Commentaire multilignes
+		//Multi lines comments
 		$string = preg_replace("#/\*(.*)\*/$#", "", $string);
 
 		$string = str_replace("<?php", "", $string);
 		$string = str_replace("?>", "", $string);
 
-		//On echape les variables.
+		//Var escape
 		$string = str_replace("$", "\$", $string);
 		return addslashes($string);
 	}
 }
-
-
-/***
- * On test !! 
-***/
-
-$obfuscator = new Obfuscator();
-
-$functionAndCall = "function sum(\$a,\$b){
-	return (\$a + \$b);
-}
-
-echo sum(1,4);
-";
-
-
-$obfuscate = $obfuscator->encrypt($functionAndCall);
-var_dump($obfuscate);
-$code = $obfuscator->decrypt($obfuscate);
-var_dump($code);
-$obfuscator->run($code);
-
-
-$classe = file_get_contents("input.php");
-
-$obfuscate = $obfuscator->encrypt($obfuscator->escape($classe));
-
-var_dump($obfuscate);
-
-$code = $obfuscator->decrypt($obfuscate);
-
-var_dump($code);
-
-$obfuscator->run($code);
